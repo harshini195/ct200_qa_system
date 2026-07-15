@@ -89,11 +89,17 @@ curl "http://127.0.0.1:8000/nodes/<node_id>/test-cases"
 
 ## Dev scripts (not part of the graded API surface)
 
-`scratch/` has two convenience scripts, not new endpoints:
+`scratch/` has three convenience scripts, not new endpoints:
 - `print_tree.py` -- recursively walks the existing Browse API
   (`/sections` + `/nodes/{id}`) and prints the whole document tree, for
   eyeballing structure while testing. Run with the server up:
   `python scratch/print_tree.py ct200_manual`
+- `tree_view_server.py` -- same tree, rendered as a webpage instead of
+  the terminal. Runs its own tiny local server on port 8001 that fetches
+  from your real API server-side (avoids a CORS round-trip through the
+  browser, and doesn't touch `app/main.py`). With the API running on
+  port 8000, run `python scratch/tree_view_server.py` and open
+  `http://127.0.0.1:8001/?document=ct200_manual`.
 - `capture_llm_example.py` -- runs the real LLM client against a live
   Groq key to capture a genuine request/response transcript, referenced
   in APPROACH.md's LLM section.
