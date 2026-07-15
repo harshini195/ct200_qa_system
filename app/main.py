@@ -7,7 +7,14 @@ from .database import engine, get_db, Base
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="CT-200 QA Traceability System")
+app = FastAPI(
+    title="CT-200 QA Traceability System",
+    description=(
+        "Dev tool: [view the parsed document tree in a browser]"
+        "(http://127.0.0.1:8001/?document=ct200_manual) "
+        "(run `python scratch/tree_view_server.py` in a separate terminal first)."
+    ),
+)
 
 
 def _rev_to_dict(rev: models.NodeRevision, include_body: bool = True) -> dict:
