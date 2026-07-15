@@ -59,19 +59,6 @@ def list_generations_by_selection(selection_id: int) -> list[dict]:
     return out
 
 
-def list_all_generations() -> list[dict]:
-    """Used by document-wide stale/traceability views. Linear scan is fine
-    at this scale (see APPROACH.md decision log #2 for the production
-    caveat)."""
-    _ensure_dir()
-    out = []
-    for fname in os.listdir(STORE_DIR):
-        if not fname.endswith(".json"):
-            continue
-        with open(os.path.join(STORE_DIR, fname)) as f:
-            out.append(json.load(f))
-    out.sort(key=lambda r: r.get("generated_at", ""))
-    return out
 
 
 def list_generations_by_node(node_id: int) -> list[dict]:

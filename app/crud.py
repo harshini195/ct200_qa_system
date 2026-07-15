@@ -4,20 +4,6 @@ from sqlalchemy import or_
 from . import models
 
 
-def list_versions(db: Session, document_id: int):
-    return (
-        db.query(models.DocumentVersion)
-        .filter_by(document_id=document_id)
-        .order_by(models.DocumentVersion.version_number)
-        .all()
-    )
-
-
-def get_all_node_ids_for_document(db: Session, document_id: int) -> set[int]:
-    rows = db.query(models.Node.id).filter_by(document_id=document_id).all()
-    return {r[0] for r in rows}
-
-
 def resolve_version(db: Session, document_id: int, version: int | None) -> models.DocumentVersion | None:
     q = db.query(models.DocumentVersion).filter_by(document_id=document_id)
     if version is not None:
