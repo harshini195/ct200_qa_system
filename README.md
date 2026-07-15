@@ -44,12 +44,12 @@ detected, new-node handling, v1 not destroyed by v2 ingestion).
 # 1. Ingest v1
 curl -X POST http://127.0.0.1:8000/documents/ct200_manual/versions \
   -H "Content-Type: application/json" \
-  -d '{"document_name": "ct200_manual", "file_path": "data/ct200_manual.md"}'
+  -d '{"file_path": "data/ct200_manual.md"}'
 
 # 2. Ingest v2 as a new version of the SAME document (v1 is not deleted)
 curl -X POST http://127.0.0.1:8000/documents/ct200_manual/versions \
   -H "Content-Type: application/json" \
-  -d '{"document_name": "ct200_manual", "file_path": "data/ct200_manual_v2.md"}'
+  -d '{"file_path": "data/ct200_manual_v2.md"}'
 ```
 
 Both responses include `parser_warnings` — e.g. a flag that section 3.2 is
@@ -86,6 +86,17 @@ curl "http://127.0.0.1:8000/documents/ct200_manual/nodes/<node_id>/diff?from_ver
 # Retrieve by node instead of by selection
 curl "http://127.0.0.1:8000/nodes/<node_id>/test-cases"
 ```
+
+## Dev scripts (not part of the graded API surface)
+
+`scratch/` has two convenience scripts, not new endpoints:
+- `print_tree.py` -- recursively walks the existing Browse API
+  (`/sections` + `/nodes/{id}`) and prints the whole document tree, for
+  eyeballing structure while testing. Run with the server up:
+  `python scratch/print_tree.py ct200_manual`
+- `capture_llm_example.py` -- runs the real LLM client against a live
+  Groq key to capture a genuine request/response transcript, referenced
+  in APPROACH.md's LLM section.
 
 ## API summary
 

@@ -18,7 +18,6 @@ class NodeOut(BaseModel):
 
 
 class IngestRequest(BaseModel):
-    document_name: str
     file_path: Optional[str] = None
     raw_text: Optional[str] = None
 
