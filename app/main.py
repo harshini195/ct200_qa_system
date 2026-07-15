@@ -1,5 +1,7 @@
 import os
 from fastapi import FastAPI, Depends, HTTPException, Query
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from . import models, schemas, crud, ingestion, llm_client, json_store
@@ -7,6 +9,10 @@ from .database import engine, get_db, Base
 
 Base.metadata.create_all(bind=engine)
 
+# docs_url=None disables FastAPI's built-in /docs route so we can define our
+# own below that injects one floating button. Everything else about the
+# default Swagger UI (openapi.json, all existing routes/schemas) is
+# untouched -- this only changes how /docs itself is rendered.
 app = FastAPI(
     title="CT-200 QA Traceability System",
     description=(
@@ -14,7 +20,49 @@ app = FastAPI(
         "(http://127.0.0.1:8001/?document=ct200_manual) "
         "(run `python scratch/tree_view_server.py` in a separate terminal first)."
     ),
+    docs_url=None,
 )
+
+_TREE_VIEWER_BUTTON_HTML = """
+<style>
+  #tree-view-btn {
+    position: fixed;
+    top: 12px;
+    right: 24px;
+    z-index: 9999;
+    background: #49cc90;
+    color: white;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-family: sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  }
+  #tree-view-btn:hover { background: #3aa876; }
+</style>
+<button id="tree-view-btn"
+        onclick="window.open('http://127.0.0.1:8001/?document=ct200_manual', '_blank')"
+        title="Requires: python scratch/tree_view_server.py running separately">
+  View Document Tree
+</button>
+"""
+
+
+@app.get("/docs", include_in_schema=False)
+async def custom_swagger_ui():
+    """Same Swagger UI as FastAPI's default /docs, with one floating button
+    added (opens the tree viewer dev tool in a new tab). See
+    scratch/tree_view_server.py for why that's a separate local server."""
+    response = get_swagger_ui_html(
+        openapi_url=app.openapi_url,
+        title=f"{app.title} - Docs",
+    )
+    body = response.body.decode("utf-8")
+    body = body.replace("</body>", _TREE_VIEWER_BUTTON_HTML + "</body>")
+    return HTMLResponse(body)
 
 
 def _rev_to_dict(rev: models.NodeRevision, include_body: bool = True) -> dict:
