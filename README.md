@@ -101,6 +101,10 @@ curl "http://127.0.0.1:8000/nodes/<node_id>/test-cases"
 | POST | `/selections/{id}/generate` | Generate test cases via LLM (or mock) |
 | GET | `/selections/{id}/test-cases` | Retrieve generations + staleness |
 | GET | `/nodes/{node_id}/test-cases` | Retrieve generations by node + staleness |
+| GET | `/documents/{name}/versions` | List all ingested versions |
+| GET | `/documents/{name}/versions/{version_number}` | Metadata for one version |
+| GET | `/documents/{name}/stale` | Document-wide: every generation currently flagged stale |
+| GET | `/documents/{name}/traceability` | Document-wide: node → generated test cases, with staleness |
 
 ## Tech stack
 

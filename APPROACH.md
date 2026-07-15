@@ -149,6 +149,20 @@ warning (e.g. "N old nodes had no version-2 match; N new nodes had no
 version-1 match" printed at ingestion time so a human notices the counts
 don't look like a clean edit).
 
+## A deliberate omission: no "requirement" abstraction
+
+I considered adding a `Requirement` layer between sections and test cases
+(section → requirement → test case, with structured per-field diffs like
+`{"field": "battery cycles", "old": "300", "new": "250"}`) but chose not
+to. Populating that layer needs an extraction step -- turning free-form
+prose into discrete, labeled requirement statements -- which is either
+fragile per-document regex or a *second* LLM extraction pipeline with its
+own malformed-output/retry/validation story on top of the test-case
+generation pipeline I already have. Traceability in this system is
+deliberately **section → test case** (via `node_id`), which is what's
+asked for; the requirement layer is real future-work, not something I'd
+want to half-build under time pressure.
+
 ## What I'd do differently with more time
 
 - Add the fuzzy-similarity safety net described in decision log #1.
