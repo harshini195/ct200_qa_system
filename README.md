@@ -38,6 +38,29 @@ heading-level/number mismatch, a leading HTML comment), plus 4 versioning
 integration tests (unchanged-node identity preserved, changed-node hash
 detected, new-node handling, v1 not destroyed by v2 ingestion).
 
+## Ingesting from a PDF instead of markdown
+
+If only a rendered PDF of the manual is available (no source `.md`),
+point `file_path` at it directly — the ingestion endpoint detects the
+`.pdf` extension and reconstructs markdown-equivalent heading structure
+from the PDF's typography (font size/weight) before handing it to the
+same parser used for the `.md` files:
+
+```bash
+curl -X POST http://127.0.0.1:8000/documents/ct200_manual/versions \
+  -H "Content-Type: application/json" \
+  -d '{"file_path": "data/ct200_manual.pdf"}'
+```
+
+See `app/pdf_ingestion.py` for the font-size tier mapping and its
+documented limitations (notably: a table with a numeric-looking bold
+header cell could defeat the heuristic that separates headings from bold
+table rows, and the HTML-comment-before-H1 quirk in the markdown source
+has no PDF equivalent to recover). `tests/test_pdf_ingestion.py` checks
+the reconstruction produces the identical `(level, heading_number,
+heading_text)` tree and preserves the same structural-consistency
+warning as the markdown source.
+
 ## Triggering the v1 → v2 re-ingestion flow specifically
 
 ```bash
@@ -89,17 +112,11 @@ curl "http://127.0.0.1:8000/nodes/<node_id>/test-cases"
 
 ## Dev scripts (not part of the graded API surface)
 
-`scratch/` has three convenience scripts, not new endpoints:
+`scratch/` has two convenience scripts, not new endpoints:
 - `print_tree.py` -- recursively walks the existing Browse API
   (`/sections` + `/nodes/{id}`) and prints the whole document tree, for
   eyeballing structure while testing. Run with the server up:
   `python scratch/print_tree.py ct200_manual`
-- `tree_view_server.py` -- same tree, rendered as a webpage instead of
-  the terminal. Runs its own tiny local server on port 8001 that fetches
-  from your real API server-side (avoids a CORS round-trip through the
-  browser, and doesn't touch `app/main.py`). With the API running on
-  port 8000, run `python scratch/tree_view_server.py` and open
-  `http://127.0.0.1:8001/?document=ct200_manual`.
 - `capture_llm_example.py` -- runs the real LLM client against a live
   Groq key to capture a genuine request/response transcript, referenced
   in APPROACH.md's LLM section.

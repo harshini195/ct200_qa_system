@@ -110,6 +110,56 @@ overwriting would destroy the record of exactly what was shown to someone
 at a specific point in time — which directly conflicts with the
 traceability goal of the whole assignment.
 
+## Staleness detection: what it does, and its honest limits
+
+Mechanism: every `NodeRevision` stores a content hash (heading + body text).
+A generation stores the hash of every source node *at generation time*. At
+retrieval, `_attach_staleness` recomputes each source node's *current*
+latest-revision hash and compares. Any mismatch → `stale: true`, surfaced
+per-source in `staleness_detail` so a caller can see exactly which source
+node(s) changed, plus the diff endpoint to see *what* changed.
+
+**The honest limit, asked directly by the assignment: does a one-word
+wording change get treated the same as a changed pressure threshold?**
+Yes — today it does, and I think that's the wrong long-term answer for a
+medical device, but I chose it deliberately over the alternative for this
+submission. A hash has no concept of *how much* meaning changed; "must"
+becoming "should" and "180 mmHg" becoming "220 mmHg" produce equally
+binary `stale: true` flags. I considered bolting on a cheap heuristic
+(regex-extract numbers from old/new body text, flag "numeric change" vs
+"wording only") and deliberately didn't, for a specific reason: a
+numeric-diff heuristic would give **false confidence** on exactly the
+changes that matter most in this domain — a changed contraindication, a
+changed "should" → "must", a removed safety caveat — none of which touch a
+number at all, but all of which are more clinically significant than, say,
+a pressure value going from 299 to 300. Shipping a severity label that's
+silently wrong on the highest-stakes category of change seemed worse than
+shipping no severity label and pointing the human at the actual diff
+instead. So the diff endpoint (`GET .../nodes/{id}/diff`) is the real
+judgment layer in this system, by design — staleness answers "did
+anything change," the diff answers "what," and a human decides whether
+that "what" matters. That division of labor is a stated design choice,
+not an oversight; see "What I'd do differently" below for the narrower,
+opt-in version of a severity hint I'd actually be willing to ship.
+
+## PDF ingestion (bonus input path)
+
+Not part of the assignment spec, but the manual is also provided as a
+rendered PDF with no accompanying markdown, so `POST
+/documents/{name}/versions` also accepts a `file_path` ending in `.pdf`.
+`app/pdf_ingestion.py` reconstructs markdown-equivalent heading structure
+from the PDF's font size/weight (title/H2/H3 tiers are unambiguous by
+size; a genuinely ambiguous tier — bold table headers render at the exact
+same size as real level-4 headings — is disambiguated using the same
+numeric-prefix pattern the parser already relies on) and feeds the result
+into the *same* `parse_markdown`, so there's one tree-building
+implementation for both input formats, not two. Its docstring states the
+heuristic's limits plainly (a table with a numeric-looking bold header
+cell would defeat it) rather than presenting it as a general solution.
+`tests/test_pdf_ingestion.py` checks the PDF-derived tree is node-for-node
+identical to the markdown-derived one, including preserving the same
+heading-level-typo warning for node 3.2.
+
 ## Decision log
 
 **1. What's the one part of this system most likely to silently give wrong
