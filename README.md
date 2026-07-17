@@ -31,20 +31,40 @@ API docs (interactive): http://127.0.0.1:8000/docs
 pytest tests/ -v
 ```
 
-12 tests: 8 parser unit tests targeting the specific irregularities found in
+18 tests: 8 parser unit tests targeting the specific irregularities found in
 the manual (duplicate headings, heading-level skip, out-of-order numbering,
 inconsistent numeral-period formatting, table body preservation, a
-heading-level/number mismatch, a leading HTML comment), plus 4 versioning
-integration tests (unchanged-node identity preserved, changed-node hash
-detected, new-node handling, v1 not destroyed by v2 ingestion).
+heading-level/number mismatch, a leading HTML comment), 4 PDF-ingestion
+tests (PDF-derived tree matches the markdown-derived tree node-for-node,
+preserves the same structural warning, doesn't misread bold table headers
+as headings, merges the wrapped title correctly), 4 versioning integration
+tests against the markdown path (unchanged-node identity preserved,
+changed-node hash detected, new-node handling, v1 not destroyed by v2
+ingestion), plus 2 of the same versioning scenarios run again against the
+PDF path specifically, since that's the primary input format.
 
-## Ingesting from a PDF instead of markdown
+## Input format: PDF (primary) or markdown
 
-If only a rendered PDF of the manual is available (no source `.md`),
-point `file_path` at it directly — the ingestion endpoint detects the
-`.pdf` extension and reconstructs markdown-equivalent heading structure
-from the PDF's typography (font size/weight) before handing it to the
-same parser used for the `.md` files:
+The manual is provided as `data/ct200_manual.pdf` / `data/ct200_manual_v2.pdf`
+(the real files, not synthetic ones) and, in an earlier version of the
+assignment materials, as `data/ct200_manual.md` / `data/ct200_manual_v2.md`.
+The system accepts either — `POST /documents/{name}/versions` detects the
+extension and routes accordingly:
+
+- **`.pdf`** (primary path): `app/pdf_ingestion.py` reconstructs
+  markdown-equivalent heading structure from the PDF's typography (font
+  size/weight classifies title/H2/H3/H4 tiers), then hands the result to
+  the *same* `parse_markdown` used for `.md` files — one tree-building
+  implementation for both formats. See `app/pdf_ingestion.py`'s docstring
+  for the tier mapping and its stated limitation (a table with a
+  numeric-looking bold header cell could defeat the heuristic that
+  separates headings from bold table rows). `tests/test_pdf_ingestion.py`
+  checks the PDF-derived tree is node-for-node identical to the
+  markdown-derived one, including preserving the same structural-
+  consistency warning for node 3.2.
+- **`.md`**: read and parsed directly. Kept working (not removed) since
+  nothing about the assignment forbids it and the parser-irregularity
+  unit tests are easiest to reason about against literal markdown text.
 
 ```bash
 curl -X POST http://127.0.0.1:8000/documents/ct200_manual/versions \
@@ -52,31 +72,25 @@ curl -X POST http://127.0.0.1:8000/documents/ct200_manual/versions \
   -d '{"file_path": "data/ct200_manual.pdf"}'
 ```
 
-See `app/pdf_ingestion.py` for the font-size tier mapping and its
-documented limitations (notably: a table with a numeric-looking bold
-header cell could defeat the heuristic that separates headings from bold
-table rows, and the HTML-comment-before-H1 quirk in the markdown source
-has no PDF equivalent to recover). `tests/test_pdf_ingestion.py` checks
-the reconstruction produces the identical `(level, heading_number,
-heading_text)` tree and preserves the same structural-consistency
-warning as the markdown source.
-
 ## Triggering the v1 → v2 re-ingestion flow specifically
 
 ```bash
 # 1. Ingest v1
 curl -X POST http://127.0.0.1:8000/documents/ct200_manual/versions \
   -H "Content-Type: application/json" \
-  -d '{"file_path": "data/ct200_manual.md"}'
+  -d '{"file_path": "data/ct200_manual.pdf"}'
 
 # 2. Ingest v2 as a new version of the SAME document (v1 is not deleted)
 curl -X POST http://127.0.0.1:8000/documents/ct200_manual/versions \
   -H "Content-Type: application/json" \
-  -d '{"file_path": "data/ct200_manual_v2.md"}'
+  -d '{"file_path": "data/ct200_manual_v2.pdf"}'
 ```
 
+(Swap `.pdf` for `.md` above and it's the identical flow against the
+markdown files — same parser output, same warnings, same node IDs.)
+
 Both responses include `parser_warnings` — e.g. a flag that section 3.2 is
-nested by markdown depth one level deeper than its own numbering implies
+nested by heading depth one level deeper than its own numbering implies
 (see APPROACH.md).
 
 ## Full walkthrough (versioning + staleness end-to-end, not just happy-path CRUD)

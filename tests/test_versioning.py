@@ -5,6 +5,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.database import Base
 from app import models, ingestion
+from app.pdf_ingestion import pdf_to_markdown
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
@@ -82,3 +83,35 @@ def test_v1_not_destroyed_by_v2_ingestion(db):
 
     v1_revisions_still_present = db.query(models.NodeRevision).filter_by(version_id=v1.id).count()
     assert v1_revisions_still_present > 0
+
+
+# --- Same scenarios, via the PDF input path -------------------------------
+# PDF is the primary input format per the assignment update; these mirror
+# the markdown-path tests above exactly, against app/pdf_ingestion.py's
+# markdown reconstruction instead of a literal .md file, to confirm
+# versioning behaves identically regardless of input format.
+
+def load_pdf_as_markdown(name):
+    return pdf_to_markdown(os.path.join(DATA_DIR, name))
+
+
+def test_pdf_path_changed_node_flagged_via_different_hash_same_node(db):
+    v1 = ingestion.ingest_document(db, "ct200_manual_pdf", load_pdf_as_markdown("ct200_manual.pdf"))
+    v2 = ingestion.ingest_document(db, "ct200_manual_pdf", load_pdf_as_markdown("ct200_manual_v2.pdf"))
+
+    v1_rev = db.query(models.NodeRevision).filter_by(version_id=v1.id, heading_number="4.2").first()
+    v2_rev = db.query(models.NodeRevision).filter_by(version_id=v2.id, heading_number="4.2").first()
+    assert v1_rev.node_id == v2_rev.node_id  # same logical section
+    assert v1_rev.content_hash != v2_rev.content_hash  # E3 timing + new E6 row changed it
+    assert "1.5 seconds" in v2_rev.body_text
+    assert "E6" in v2_rev.body_text
+    assert "E6" not in v1_rev.body_text
+
+
+def test_pdf_path_new_v2_section_gets_new_logical_node(db):
+    ingestion.ingest_document(db, "ct200_manual_pdf", load_pdf_as_markdown("ct200_manual.pdf"))
+    v2 = ingestion.ingest_document(db, "ct200_manual_pdf", load_pdf_as_markdown("ct200_manual_v2.pdf"))
+
+    v2_new_rev = db.query(models.NodeRevision).filter_by(version_id=v2.id, heading_number="5.3").first()
+    assert v2_new_rev is not None
+    assert "Data Export" in v2_new_rev.heading_text

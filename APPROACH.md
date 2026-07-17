@@ -142,23 +142,39 @@ that "what" matters. That division of labor is a stated design choice,
 not an oversight; see "What I'd do differently" below for the narrower,
 opt-in version of a severity hint I'd actually be willing to ship.
 
-## PDF ingestion (bonus input path)
+## PDF ingestion (primary input format, per assignment update)
 
-Not part of the assignment spec, but the manual is also provided as a
-rendered PDF with no accompanying markdown, so `POST
-/documents/{name}/versions` also accepts a `file_path` ending in `.pdf`.
-`app/pdf_ingestion.py` reconstructs markdown-equivalent heading structure
-from the PDF's font size/weight (title/H2/H3 tiers are unambiguous by
-size; a genuinely ambiguous tier — bold table headers render at the exact
-same size as real level-4 headings — is disambiguated using the same
-numeric-prefix pattern the parser already relies on) and feeds the result
-into the *same* `parse_markdown`, so there's one tree-building
-implementation for both input formats, not two. Its docstring states the
-heuristic's limits plainly (a table with a numeric-looking bold header
-cell would defeat it) rather than presenting it as a general solution.
+The assignment materials were updated mid-way to say the manual should be
+worked with directly as a PDF rather than markdown. `app/pdf_ingestion.py`
+handles this: it reconstructs markdown-equivalent heading structure from
+the PDF's font size/weight (title/H2/H3 tiers are unambiguous by size; a
+genuinely ambiguous tier — bold table headers render at the exact same
+size as real level-4 headings — is disambiguated using the same
+numeric-prefix pattern the parser already relies on for the markdown
+input) and feeds the result into the *same* `parse_markdown`, so there's
+one tree-building implementation for both input formats, not two. Its
+docstring states the heuristic's limits plainly (a table with a
+numeric-looking bold header cell would defeat it) rather than presenting
+it as a general solution. No OCR is needed or used: both provided PDFs
+have a real embedded text layer (`pdftotext`/`pdfplumber` extract it
+directly), so this is font-metadata-driven structural extraction, not
+image-based OCR.
+
+`data/ct200_manual.pdf` and `data/ct200_manual_v2.pdf` are the actual
+files provided for the assignment (not something I generated) — v2 adds a
+new `5.3 Data Export` section, changes the E3 auto-deflate time (2s →
+1.5s), adds an `E6` error row, and reduces the battery-life and
+cuff-inflation-increment figures, mirroring the same set of changes
+present in the markdown v2 for anyone comparing the two input paths.
 `tests/test_pdf_ingestion.py` checks the PDF-derived tree is node-for-node
 identical to the markdown-derived one, including preserving the same
 heading-level-typo warning for node 3.2.
+
+Markdown ingestion (`.md`) is still supported, not removed — nothing in
+the assignment forbids it, and it remains useful for reasoning about the
+parser's irregularity-handling in isolation from PDF-extraction concerns.
+But PDF is the primary, assignment-authoritative path, and the README's
+walkthrough leads with it accordingly.
 
 ## Decision log
 
