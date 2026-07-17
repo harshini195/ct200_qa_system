@@ -29,7 +29,14 @@ def _rev_to_dict(rev: models.NodeRevision, include_body: bool = True) -> dict:
 
 @app.post("/documents/{document_name}/versions")
 def ingest_new_version(document_name: str, req: schemas.IngestRequest, db: Session = Depends(get_db)):
-    if req.raw_text is not None:
+    # `is not None` alone isn't enough here: Swagger UI's example schema
+    # pre-fills the request body with `"raw_text": ""` alongside
+    # `file_path`, and an empty string is not None. Without this check,
+    # anyone who executes the request as shown by default silently ingests
+    # an empty document instead of the file they meant to point at -- no
+    # error, just a version with zero nodes. An empty string is never a
+    # meaningful "user provided this text", so treat it as absent.
+    if req.raw_text:
         raw_text = req.raw_text
     elif req.file_path is not None:
         if not os.path.exists(req.file_path):
